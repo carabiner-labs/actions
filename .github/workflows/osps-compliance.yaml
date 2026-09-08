@@ -28,7 +28,7 @@ on:
         type: string
         required: false
         # TODO: Pin this once we finalize the policy group
-        default: git+https://github.com/carabiner-dev/policies@refs/heads/feat/osps-baseline-chains#sets/baseline/osps-baseline.policy.json
+        default: git+https://github.com/carabiner-dev/policies#sets/baseline/osps-baseline.policy.json
       branch:
         description: Branch to evaluate, defaults to the repository's default.
         type: string
