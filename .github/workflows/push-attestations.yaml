@@ -62,7 +62,7 @@ jobs:
           path: downloads
 
       - name: Install bnd
-        uses: carabiner-dev/actions/install/bnd@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
+        uses: carabiner-dev/actions/install/bnd@b7c2f0562b2dd69f0d9db12c2eff7cc6bac653d0 # main
 
       - name: Push attestations
         env:
