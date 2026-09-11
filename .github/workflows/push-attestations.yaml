@@ -62,7 +62,7 @@ jobs:
           path: downloads
 
       - name: Install bnd
-        uses: carabiner-dev/actions/install/bnd@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/install/bnd@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
 
       - name: Push attestations
         env:
@@ -71,32 +71,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Gather every bundle into one directory. bnd push reads bundle
-          # files, not jsonl, so each line of a jsonl file becomes its own
-          # bundle.
-          mkdir -p bundles
-          count=0
           shopt -s nullglob
-          for f in downloads/*; do
-            case "${f}" in
-              *.jsonl)
-                while IFS= read -r line; do
-                  [ -z "${line}" ] && continue
-                  count=$((count + 1))
-                  printf '%s\n' "${line}" > "bundles/$(printf '%04d' "${count}").json"
-                done < "${f}"
-                ;;
-              *)
-                count=$((count + 1))
-                cp "${f}" "bundles/$(printf '%04d' "${count}").json"
-                ;;
-            esac
-          done
-
-          if [ "${count}" -eq 0 ]; then
-            echo "::error::No attestations found in the artifacts matching '${INPUTS_ARTIFACTS}'"
+          files=(downloads/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No files found in the artifacts matching '${INPUTS_ARTIFACTS}'"
             exit 1
           fi
 
-          echo "Pushing ${count} attestation(s) to ${REPOSITORY}"
-          bnd push github "${REPOSITORY}" bundles/
+          # bnd push reads bundle files and jsonl files with one bundle per
+          # line, so the downloaded files go in as they are.
+          echo "Pushing ${files[*]} to ${REPOSITORY}"
+          bnd push github "${REPOSITORY}" "${files[@]}"

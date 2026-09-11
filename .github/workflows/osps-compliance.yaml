@@ -79,7 +79,7 @@ jobs:
       # Software bill of materials
       # ------------------------------------------------------------------
       - name: Generate SBOMs
-        uses: carabiner-dev/actions/sbom/source@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/sbom/source@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           format: spdx
           files: 'true'
@@ -92,7 +92,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Attest Security Insights
         if: hashFiles('SECURITY-INSIGHTS.yml') != ''
-        uses: carabiner-dev/actions/bnd/commit@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/bnd/commit@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           path: SECURITY-INSIGHTS.yml
           type: https://github.com/ossf/security-insights-spec
@@ -100,7 +100,7 @@ jobs:
 
       - name: Attest OpenEoX
         if: hashFiles('.openeox.json') != ''
-        uses: carabiner-dev/actions/bnd/commit@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/bnd/commit@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           path: .openeox.json
           type: https://docs.oasis-open.org/openeox/core/v1.0
@@ -111,14 +111,14 @@ jobs:
       # ------------------------------------------------------------------
       - name: Attest organization settings
         if: github.event.organization.login != ''
-        uses: carabiner-dev/actions/snappy/snap@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/snappy/snap@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           spec: builtin:github/org.yaml
           vars: ORG=${{ github.event.organization.login }}
           output: attestations/org.bundle.json
 
       - name: Attest branch rules
-        uses: carabiner-dev/actions/snappy/snap@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/snappy/snap@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           spec: builtin:github/branch-rules.yaml
           vars: |
@@ -128,7 +128,7 @@ jobs:
           output: attestations/branch.bundle.json
 
       - name: Attest repository settings
-        uses: carabiner-dev/actions/snappy/snap@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/snappy/snap@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           spec: builtin:github/repo.yaml
           vars: |
@@ -142,7 +142,7 @@ jobs:
       # installer goes away once it can.
       # ------------------------------------------------------------------
       - name: Install Scorecard
-        uses: carabiner-dev/actions/install/scorecard@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/install/scorecard@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
 
       - name: Run Scorecard
         env:
@@ -157,7 +157,7 @@ jobs:
             > scorecard.intoto.json
 
       - name: Attest Scorecard results
-        uses: carabiner-dev/actions/bnd/sign@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/bnd/sign@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           json-path: scorecard.intoto.json
           output: attestations/scorecard.bundle.json
@@ -167,7 +167,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Attest tests
         if: hashFiles('go.mod') != ''
-        uses: carabiner-dev/actions/beaker/tests@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/beaker/tests@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           output: attestations/tests.bundle.json
 
@@ -186,7 +186,7 @@ jobs:
 
       - name: Attest OSV results
         if: hashFiles('osv-results.json') != ''
-        uses: carabiner-dev/actions/bnd/sign@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/bnd/sign@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           json-path: osv-results.json
           is-predicate: 'true'
@@ -195,7 +195,7 @@ jobs:
           output: attestations/osv-results.bundle.json
 
       - name: Attest VEX document
-        uses: carabiner-dev/actions/vexflow/assemble@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/vexflow/assemble@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           branch: ${{ env.BRANCH }}
           output: attestations/openvex.bundle.json
@@ -258,7 +258,7 @@ jobs:
       # Pack everything and evaluate the policy
       # ------------------------------------------------------------------
       - name: Pack attestations
-        uses: carabiner-dev/actions/bnd/pack@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/bnd/pack@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           bundles: |
             attestations/
@@ -267,7 +267,7 @@ jobs:
           upload-artifact: 'true'
 
       - name: Evaluate compliance
-        uses: carabiner-dev/actions/ampel/verify@27d1414fda764bc92954af611b418e39424df2ca # main
+        uses: carabiner-dev/actions/ampel/verify@9557e195f0f49936aa735889aad06d3f6e8f3e7e # main
         with:
           subject: sha1:${{ github.sha }}
           collector: jsonl:attestations.jsonl
