@@ -57,7 +57,6 @@ moving under you.
 | `branch` | the repository's default branch | Branch whose protection rules and VEX document are attested. |
 | `slsa-source-workflow` | `SLSA Source` | Name of the workflow that computes the SLSA source provenance for each push. Set to an empty string to skip fetching it. |
 | `fail-on-policy` | `false` | Fail the job when the policy evaluation does not pass. |
-| `push-attestations` | `false` | Push the evidence and the evaluation results to the repository's GitHub attestations store. The calling job must also grant `attestations: write`. |
 
 ```yaml
     uses: carabiner-labs/actions/.github/workflows/osps-compliance.yaml@main
@@ -85,12 +84,43 @@ moving under you.
 - The `attestations.jsonl` artifact holds all the evidence, one attestation
   per line, ready for `ampel verify --collector jsonl:attestations.jsonl`.
 - The `ampel.intoto.json` artifact is the signed evaluation result.
-- With `push-attestations: true`, a second job pushes every attestation in
-  both artifacts to the repository's GitHub attestations store with
-  `bnd push`. It fails with an explanation when the calling job did not grant
-  `attestations: write`.
 - The job summary shows the evaluation report. The job itself only fails on
   a policy failure when `fail-on-policy` is set.
 
 The `carabiner-dev/actions` references in the workflow are pinned to a commit
 on `main` until the actions it uses are part of a release.
+
+## Push attestations
+
+`.github/workflows/push-attestations.yaml` is a reusable workflow that pushes
+attestations uploaded as artifacts earlier in the run to the repository's
+GitHub attestations store with `bnd push`. By default it takes the two
+artifacts the OSPS compliance workflow produces, so publishing the evidence
+and the evaluation results is one more job:
+
+```yaml
+jobs:
+  compliance:
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: carabiner-labs/actions/.github/workflows/osps-compliance.yaml@main
+
+  push:
+    needs: compliance
+    permissions:
+      attestations: write
+    uses: carabiner-labs/actions/.github/workflows/push-attestations.yaml@main
+```
+
+The push is a separate workflow because a called job cannot request a
+permission its caller did not grant, even when the job is skipped: GitHub
+rejects the run before it starts. Keeping it apart means only callers that
+opt in grant `attestations: write`, and a missing grant is reported by GitHub
+as `The nested job 'push' is requesting 'attestations: write', but is only
+allowed 'attestations: none'`.
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `artifacts` | `{attestations.jsonl,ampel.intoto.json}` | Glob matching the names of the artifacts to push. Their files may be bundles or jsonl files with one bundle per line. |
