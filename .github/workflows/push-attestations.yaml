@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: Copyright 2026 Carabiner Systems, Inc
+# SPDX-License-Identifier: Apache-2.0
+---
+# Reusable workflow that pushes attestations produced earlier in the same
+# run to the repository's GitHub attestations store with bnd push.
+#
+# It downloads the workflow artifacts holding the attestations and pushes
+# every bundle in them. By default it takes the two artifacts the OSPS
+# compliance workflow uploads: the packed evidence (attestations.jsonl) and
+# the signed evaluation results (ampel.intoto.json). Call it from a job that
+# runs after the one that produced them:
+#
+#   jobs:
+#     compliance:
+#       permissions:
+#         id-token: write
+#         contents: read
+#         actions: read
+#       uses: carabiner-labs/actions/.github/workflows/osps-compliance.yaml@main
+#
+#     push:
+#       needs: compliance
+#       permissions:
+#         attestations: write
+#       uses: carabiner-labs/actions/.github/workflows/push-attestations.yaml@main
+#
+# This is a separate workflow rather than an optional job of the compliance
+# one because a called job cannot ask for a permission the caller did not
+# grant, even when the job is skipped: GitHub rejects the run before it
+# starts. Keeping the push apart lets callers grant attestations: write only
+# when they opt in, and GitHub itself reports the missing permission.
+name: Push attestations
+
+on:
+  workflow_call:
+    inputs:
+      artifacts:
+        description: >
+          Glob matching the names of the workflow artifacts to push. Their
+          files may be attestation bundles or jsonl files with one bundle
+          per line.
+        type: string
+        required: false
+        default: '{attestations.jsonl,ampel.intoto.json}'
+
+permissions: {}
+
+jobs:
+  push:
+    name: Push to the GitHub attestations store
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write # bnd push writes to the attestations store
+    env:
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Download the attestations
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ inputs.artifacts }}
+          merge-multiple: 'true'
+          path: downloads
+
+      - name: Install bnd
+        uses: carabiner-dev/actions/install/bnd@27d1414fda764bc92954af611b418e39424df2ca # main
+
+      - name: Push attestations
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          INPUTS_ARTIFACTS: ${{ inputs.artifacts }}
+        run: |
+          set -euo pipefail
+
+          # Gather every bundle into one directory. bnd push reads bundle
+          # files, not jsonl, so each line of a jsonl file becomes its own
+          # bundle.
+          mkdir -p bundles
+          count=0
+          shopt -s nullglob
+          for f in downloads/*; do
+            case "${f}" in
+              *.jsonl)
+                while IFS= read -r line; do
+                  [ -z "${line}" ] && continue
+                  count=$((count + 1))
+                  printf '%s\n' "${line}" > "bundles/$(printf '%04d' "${count}").json"
+                done < "${f}"
+                ;;
+              *)
+                count=$((count + 1))
+                cp "${f}" "bundles/$(printf '%04d' "${count}").json"
+                ;;
+            esac
+          done
+
+          if [ "${count}" -eq 0 ]; then
+            echo "::error::No attestations found in the artifacts matching '${INPUTS_ARTIFACTS}'"
+            exit 1
+          fi
+
+          echo "Pushing ${count} attestation(s) to ${REPOSITORY}"
+          bnd push github "${REPOSITORY}" bundles/
