@@ -71,14 +71,48 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Gather every attestation into its own bundle file. bnd stops at
+          # the first bundle the store rejects, so until it learns to keep
+          # going the bundles are pushed one by one from here.
+          mkdir -p bundles
+          count=0
           shopt -s nullglob
-          files=(downloads/*)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::No files found in the artifacts matching '${INPUTS_ARTIFACTS}'"
+          for f in downloads/*; do
+            case "${f}" in
+              *.jsonl)
+                while IFS= read -r line; do
+                  [ -z "${line}" ] && continue
+                  count=$((count + 1))
+                  printf '%s\n' "${line}" > "bundles/$(printf '%04d' "${count}").json"
+                done < "${f}"
+                ;;
+              *)
+                count=$((count + 1))
+                cp "${f}" "bundles/$(printf '%04d' "${count}").json"
+                ;;
+            esac
+          done
+
+          if [ "${count}" -eq 0 ]; then
+            echo "::error::No attestations found in the artifacts matching '${INPUTS_ARTIFACTS}'"
             exit 1
           fi
 
-          # bnd push reads bundle files and jsonl files with one bundle per
-          # line, so the downloaded files go in as they are.
-          echo "Pushing ${files[*]} to ${REPOSITORY}"
-          bnd push github "${REPOSITORY}" "${files[@]}"
+          # Push each bundle. One the store rejects is reported and skipped;
+          # the job only fails when none could be pushed.
+          pushed=0
+          failed=0
+          for bundle in bundles/*.json; do
+            if output="$(bnd push github "${REPOSITORY}" "${bundle}" 2>&1)"; then
+              pushed=$((pushed + 1))
+            else
+              failed=$((failed + 1))
+              echo "::warning::Could not push ${bundle}: ${output##*msg=}"
+            fi
+          done
+
+          echo "Pushed ${pushed} of ${count} attestation(s) to ${REPOSITORY}, ${failed} failed"
+          if [ "${pushed}" -eq 0 ]; then
+            echo "::error::None of the ${count} attestation(s) could be pushed to ${REPOSITORY}"
+            exit 1
+          fi
